@@ -1,14 +1,23 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Baza danych: nicki, status wycieku oraz adresy IP
-const leakedPlayersDatabase = [
-    { name: "ZlyGracz123", ip: "192.168.1.100", leakStatus: "wyciek" },
-    { name: "TestUser", ip: "10.0.0.50", leakStatus: "wyciek" },
-    { name: "Jestem_Neon", ip: "185.220.101.5", leakStatus: "wyciek" },
-    { name: "_xvn", ip: "45.154.255.88", leakStatus: "wyciek" }
-];
+// Funkcja wczytująca bazę wycieków z pliku leaks.json
+function loadLeaks() {
+    try {
+        const filePath = path.join(__dirname, 'leaks.json');
+        if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (err) {
+        console.error("Błąd podczas wczytywania bazy wycieków:", err);
+    }
+    return [];
+}
 
 app.get('/player-stats', (req, res) => {
     const player = req.query.player;
@@ -16,19 +25,22 @@ app.get('/player-stats', (req, res) => {
         return res.status(400).json({ error: "Nie podano nicku gracza" });
     }
 
+    // Wczytujemy bazę dynamicznie lub trzymamy w pamięci
+    const leakedPlayersDatabase = loadLeaks();
+
     // Szukamy gracza w bazie (ignorując wielkość liter)
     const foundPlayer = leakedPlayersDatabase.find(
-        p => p.name.toLowerCase() === player.toLowerCase()
+        p => p.name && p.name.toLowerCase() === player.toLowerCase()
     );
 
     if (foundPlayer) {
         res.json({
             player: foundPlayer.name,
-            leakStatus: foundPlayer.leakStatus,
-            ip: foundPlayer.ip
+            leakStatus: foundPlayer.leakStatus || "wyciek",
+            ip: foundPlayer.ip || "Ukryte IP"
         });
     } else {
-        // Jeśli gracza nie ma w bazie wycieków
+        // Jeśli gracza nie ma w bazie 15k+ wycieków
         res.json({
             player: player,
             leakStatus: "brak",
@@ -38,5 +50,5 @@ app.get('/player-stats', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Serwer API działa na porcie ${PORT}`);
+    console.log(`Serwer API z bazą wycieków działa na porcie ${PORT}`);
 });
